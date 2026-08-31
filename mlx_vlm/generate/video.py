@@ -56,8 +56,8 @@ def sample_video_frames(videos, fps=2.0):
     frames = []
     frame_fps = fps
     for video in videos:
-        arr, sampled_fps = load_video(str(video), fps=fps)
-        frame_fps = sampled_fps or frame_fps
+        arr, metadata = load_video(str(video), fps=fps)
+        frame_fps = metadata.sampled_fps or frame_fps
         for frame in arr:
             frames.append(Image.fromarray(np.transpose(frame, (1, 2, 0))))
     return frames, frame_fps
