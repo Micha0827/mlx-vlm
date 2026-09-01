@@ -731,7 +731,12 @@ def get_model_path(
     return model_path
 
 
-def load_model(model_path: Path, lazy: bool = False, **kwargs) -> nn.Module:
+def load_model(
+    model_path: Path,
+    lazy: bool = False,
+    fp8_target_quantization: Optional[dict] = None,
+    **kwargs,
+) -> nn.Module:
     """
     Load and initialize the model from a given path.
 
@@ -745,6 +750,9 @@ def load_model(model_path: Path, lazy: bool = False, **kwargs) -> nn.Module:
         quantize_activations (bool, optional): If True, convert QuantizedLinear layers
             to QQLinear layers for activation quantization. Only supported for models
             quantized with 'nvfp4' or 'mxfp8' modes. Default: ``False``.
+        fp8_target_quantization (dict, optional): Native MLX quantization parameters
+            to use while converting a fine-grained block-FP8 checkpoint. Defaults to
+            MXFP8 when omitted.
 
     Returns:
         nn.Module: The loaded and initialized model.
@@ -840,7 +848,11 @@ python -m mlx_vlm.convert --hf-path <local_dir> --mlx-path <mlx_dir>
     if transformed_quantization is None:
         from .fp8 import transform_fp8_weights
 
-        weights, transformed_quantization = transform_fp8_weights(weights, config)
+        weights, transformed_quantization = transform_fp8_weights(
+            weights,
+            config,
+            target_quantization=fp8_target_quantization,
+        )
     if transformed_quantization is not None:
         config["quantization"] = transformed_quantization
         config["quantization_config"] = transformed_quantization
@@ -1276,9 +1288,17 @@ def load_processor(
 
 
 def fetch_from_hub(
-    model_path: Path, lazy: bool = False, **kwargs
+    model_path: Path,
+    lazy: bool = False,
+    fp8_target_quantization: Optional[dict] = None,
+    **kwargs,
 ) -> Tuple[nn.Module, dict, ProcessorMixin]:
-    model = load_model(model_path, lazy, **kwargs)
+    model = load_model(
+        model_path,
+        lazy,
+        fp8_target_quantization=fp8_target_quantization,
+        **kwargs,
+    )
     config = load_config(model_path, **kwargs)
     processor = load_processor(
         model_path,

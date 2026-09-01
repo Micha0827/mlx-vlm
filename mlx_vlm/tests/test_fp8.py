@@ -97,6 +97,44 @@ def test_fp8_weight_conversion_replaces_scale_inv_pair():
     assert out["norm.weight"].dtype == mx.bfloat16
 
 
+def test_fp8_weight_conversion_can_target_affine_4bit():
+    weight, scale_inv = _source_fp8_pair(128, 128)
+    target_quantization = {"group_size": 64, "bits": 4, "mode": "affine"}
+    restored = _dequantize_fp8_weight(weight, scale_inv[:1, :1])
+    expected_weight, expected_scales, expected_biases = mx.quantize(
+        restored, **target_quantization
+    )
+
+    out, quantization = transform_fp8_weights(
+        {
+            "proj.weight": weight,
+            "proj.weight_scale_inv": scale_inv[:1, :1],
+        },
+        {
+            "quantization_config": {
+                "quant_method": "fp8",
+                "fmt": "e4m3",
+                "weight_block_size": [128, 128],
+            }
+        },
+        target_quantization=target_quantization,
+    )
+    mx.eval(
+        out["proj.weight"],
+        out["proj.scales"],
+        out["proj.biases"],
+        expected_weight,
+        expected_scales,
+        expected_biases,
+    )
+
+    assert quantization == target_quantization
+    assert mx.array_equal(out["proj.weight"], expected_weight).item()
+    assert mx.array_equal(out["proj.scales"], expected_scales).item()
+    assert mx.array_equal(out["proj.biases"], expected_biases).item()
+    assert "proj.weight_scale_inv" not in out
+
+
 def test_shared_fp8_transform_runs_before_qwen_key_remapping():
     weight, scale_inv = _source_fp8_pair(128, 128)
     context = SimpleNamespace(
